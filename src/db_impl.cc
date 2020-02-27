@@ -19,6 +19,10 @@
 #include "table_factory.h"
 #include "titan_build_version.h"
 
+// for test
+#include <sys/stat.h>
+#include <fcntl.h>
+
 namespace rocksdb {
 namespace titandb {
 
@@ -631,6 +635,7 @@ Status TitanDBImpl::GetImpl(const ReadOptions& options,
   }
   if (s.ok()) {
     value->Reset();
+    // TODO: still assign storage
     value->PinSelf(record.value);
   }
   return s;
@@ -695,7 +700,6 @@ Iterator* TitanDBImpl::NewIteratorImpl(
                     "Column family id:%" PRIu32 " not Found.", handle->GetID());
     return nullptr;
   }
-
   std::unique_ptr<ArenaWrappedDBIter> iter(db_impl_->NewIteratorImpl(
       options, cfd, options.snapshot->GetSequenceNumber(),
       nullptr /*read_callback*/, true /*allow_blob*/, true /*allow_refresh*/));
@@ -1326,12 +1330,33 @@ void TitanDBImpl::DumpStats() {
   log_buffer.FlushBufferToLog();
 }
 
+// TODO: cannot work in mac os
 void TitanDBImpl::GenerateCachePrefix() {
   // Unlike block-based table, which have per-table cache prefix, we use
   // the same cache prefix for all blob files for blob cache.
   assert(directory_ != nullptr);
   char buffer[kMaxVarint64Length * 3 + 1];
-  size_t size = directory_->GetUniqueId(buffer, sizeof(buffer));
+  struct stat buf;
+//  int fd = open(dirname_.c_str(), O_RDWR, 0644);
+//  if (fd < 0) {
+//    printf("open db directory %s error: %s\n", dirname_.c_str(), strerror(fd));
+//    assert(fd >= 0);
+//    return;
+//  }
+  int result = stat(dirname_.c_str(), &buf);
+  if (result == -1) {
+    printf("fstat error: %s\n", strerror(errno));
+    return;
+  }
+
+  char* rid = buffer;
+  rid = EncodeVarint64(rid, buf.st_dev);
+  rid = EncodeVarint64(rid, buf.st_ino);
+  rid = EncodeVarint64(rid, buf.st_gen);
+  auto size = rid - buffer;
+  printf("dirname_= %s, directory_size = %ld, st_gen=%lld\n", dirname_.c_str(), size, buf.st_ino);
+  // size_t size = directory_->GetUniqueId(buffer, sizeof(buffer));
+  assert(size < 0);
   assert(size > 0);
   cache_prefix_.assign(buffer, size);
 }

@@ -121,6 +121,7 @@ class TitanDBIterator : public Iterator {
   }
 
   void GetBlobValue() {
+    // TODO: cache here
     assert(iter_->status().ok());
 
     BlobIndex index;
@@ -133,6 +134,31 @@ class TitanDBIterator : public Iterator {
       return;
     }
 
+    // TODO: iterator 命中cache概率应该比较小
+    std::string cache_key;
+    Cache::Handle* cache_handle = nullptr;
+    auto blob_cache_ = storage_->cf_options().blob_cache.get();
+
+    if (blob_cache_ != nullptr) {
+      cache_key.assign(cache_prefix_);
+      index.EncodeTo(&cache_key);
+      cache_handle = blob_cache_->Lookup(cache_key);
+      if (cache_handle != nullptr) {
+        auto* cached_blob =
+            reinterpret_cast<OwnedSlice*>(blob_cache_->Value(cache_handle));
+        // 相当于借用cached_blob的内存, 在析构的时候只能调用UnrefCacheHandle
+        buffer_.PinSlice(*cached_blob, UnrefCacheHandle, blob_cache_,
+                         cache_handle);
+        status_ = DecodeInto(*cached_blob, &record_);
+        if (!status_.ok())  {
+          return;
+        }
+        return;
+      }
+    }
+
+
+    // 没有使用和blob_storage一致的Get接口，导致这里需要特殊处理一下
     auto it = files_.find(index.file_number);
     if (it == files_.end()) {
       std::unique_ptr<BlobFilePrefetcher> prefetcher;
@@ -174,6 +200,7 @@ class TitanDBIterator : public Iterator {
   Env* env_;
   TitanStats* stats_;
   Logger* info_log_;
+  const std::string cache_prefix_;
 };
 
 }  // namespace titandb

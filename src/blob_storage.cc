@@ -11,10 +11,11 @@ Status BlobStorage::Get(const ReadOptions& options, const BlobIndex& index,
   if (blob_cache_ != nullptr) {
     cache_key.assign(cache_prefix_);
     index.EncodeTo(&cache_key);
-    blob_cache_->Lookup(cache_key);
+    cache_handle = blob_cache_->Lookup(cache_key);
     if (cache_handle != nullptr) {
       auto* cached_blob =
           reinterpret_cast<OwnedSlice*>(blob_cache_->Value(cache_handle));
+      // 相当于借用cached_blob的内存, 在析构的时候只能调用UnrefCacheHandle
       buffer->PinSlice(*cached_blob, UnrefCacheHandle, blob_cache_,
                        cache_handle);
       return DecodeInto(*cached_blob, record);
@@ -27,6 +28,7 @@ Status BlobStorage::Get(const ReadOptions& options, const BlobIndex& index,
     return Status::Corruption("Missing blob file: " +
                               std::to_string(index.file_number));
   }
+  // why OwnedSlice
   OwnedSlice blob;
   Status s = file_cache_->Get(options, sfile->file_number(), sfile->file_size(),
                               index.blob_handle, record, &blob);
@@ -34,7 +36,7 @@ Status BlobStorage::Get(const ReadOptions& options, const BlobIndex& index,
     return s;
   }
 
-  if (blob_cache_ == nullptr) {
+  if (blob_cache_ != nullptr) {
     OwnedSlice* cache_value = new OwnedSlice(std::move(blob));
     size_t cache_size = cache_value->size() + sizeof(*cache_value);
     blob_cache_->Insert(cache_key, cache_value, cache_size,

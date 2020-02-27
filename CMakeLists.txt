@@ -30,11 +30,11 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${ROCKSDB_DIR}/cmake/modules/")
 include(cmake/rocksdb_flags.cmake)
 
-include_directories(${ROCKSDB_DIR})
-include_directories(${ROCKSDB_DIR}/include)
-include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${PROJECT_SOURCE_DIR}/src)
-include_directories(${PROJECT_SOURCE_DIR}/util)
+include_directories(BEFORE ${ROCKSDB_DIR})
+include_directories(BEFORE ${ROCKSDB_DIR}/include)
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/include)
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/src)
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/util)
 
 file(GLOB SOURCES src/*.cc)
 file(GLOB TEST_SOURCES src/*test.cc)
@@ -85,7 +85,8 @@ endif()
 
 if (WITH_TITAN_TESTS AND (NOT CMAKE_BUILD_TYPE STREQUAL "Release"))
   include(CTest)
-  include_directories(SYSTEM ${ROCKSDB_DIR}/third-party/gtest-1.7.0/fused-src)
+#  link_directories(/usr/local/lib)
+  include_directories(BEFORE SYSTEM ${ROCKSDB_DIR}/third-party/gtest-1.7.0/fused-src)
   set(TESTS
         blob_file_iterator_test
         blob_file_size_collector_test
@@ -106,6 +107,7 @@ if (WITH_TITAN_TESTS AND (NOT CMAKE_BUILD_TYPE STREQUAL "Release"))
         gtest)
         
   foreach(test ${TESTS})
+    message("test target: titan_${test}")
     add_executable(titan_${test} src/${test}.cc $<TARGET_OBJECTS:testharness>)
       target_link_libraries(titan_${test} ${TEST_LIBS})
       add_test(titan_${test} titan_${test})

@@ -40,6 +40,7 @@ class TitanDBTest : public testing::Test {
     options_.min_gc_batch_size = 1;
     options_.merge_small_file_threshold = 0;
     options_.disable_background_gc = true;
+    options_.blob_cache = NewLRUCache(1024 * 1024 * 128);
     options_.blob_file_compression = CompressionType::kLZ4Compression;
     options_.statistics = CreateDBStatistics();
     DeleteDir(env_, options_.dirname);
