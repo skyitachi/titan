@@ -147,6 +147,7 @@ class TitanDBIterator : public Iterator {
         auto* cached_blob =
             reinterpret_cast<OwnedSlice*>(blob_cache_->Value(cache_handle));
         // 相当于借用cached_blob的内存, 在析构的时候只能调用UnrefCacheHandle
+        buffer_.Reset();
         buffer_.PinSlice(*cached_blob, UnrefCacheHandle, blob_cache_,
                          cache_handle);
         status_ = DecodeInto(*cached_blob, &record_);

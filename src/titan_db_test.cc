@@ -686,6 +686,7 @@ TEST_F(TitanDBTest, BlobFileIOError) {
       new TitanFaultInjectionTestEnv(env_));
   options_.env = mock_env.get();
   options_.disable_background_gc = true;  // avoid abort by BackgroundGC
+  options_.blob_cache = nullptr;
   Open();
 
   std::map<std::string, std::string> data;
